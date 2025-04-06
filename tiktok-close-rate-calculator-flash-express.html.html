@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบคำนวณอัตราปิดงาน TikTok</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&family=Oswald:wght@300;400;500&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .header {
+      background-color: #FF6F00;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .header i {
+      font-size: 40px;
+    }
+
+    h2 {
+      font-family: 'Oswald', sans-serif;
+      font-size: 24px;
+      color: #FF6F00;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .highlight-box {
+      background-color: #fff8e1;
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px dashed #FF6F00;
+      margin-top: 20px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+      animation: pulse 2s infinite;
+    }
+
+    .highlight-box h2 {
+      font-size: 30px;
+      font-weight: bold;
+      color: #FF6F00;
+    }
+
+    .highlight-box p {
+      font-size: 18px;
+      color: #444;
+    }
+
+    .file-upload-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    input[type="file"] {
+      font-size: 16px;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      font-family: 'Kanit', sans-serif;
+    }
+
+    button {
+      padding: 12px 20px;
+      background-color: #FF6F00;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+      transition: background-color 0.3s ease;
+      font-family: 'Kanit', sans-serif;
+    }
+
+    button:hover {
+      background-color: #e65c00;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      font-family: 'Kanit', sans-serif;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #FF6F00;
+      color: white;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 16px;
+      color: #444;
+    }
+
+    footer a {
+      text-decoration: none;
+      color: #FF6F00;
+      font-weight: bold;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <i class="fas fa-check-circle"></i>
+    <h1>ระบบคำนวณอัตราปิดงาน TikTok</h1>
+    <p>ระบบนี้ใช้ในการคำนวณอัตราปิดงาน TikTok ของ Flashexpress เท่านั้น</p>
+  </div>
+
+  <h2>นำเข้าไฟล์ Excel สำหรับคำนวณอัตราปิดงาน</h2>
+
+  <div class="file-upload-container">
+    <input type="file" id="excelFile" accept=".xlsx" onchange="handleFile()" />
+  </div>
+
+  <div class="highlight-box">
+    <h2>อัตราปิดงานพัสดุ TikTok: <span id="completionRate">0%</span></h2>
+    <p id="requiredTarget">...</p>
+  </div>
+
+  <table id="statusTable">
+    <thead>
+      <tr>
+        <th>สถานะพัสดุ</th>
+        <th>จำนวน</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr>
+        <th>ผลรวม</th>
+        <th id="totalCount">0</th>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="file-upload-container">
+    <button onclick="exportFilteredData()">ส่งออกข้อมูล</button>
+    <button onclick="resetData()">ล้างข้อมูล</button>
+  </div>
+
+  <footer>
+    <p>ระบบนี้พัฒนาโดย <a href="https://www.example.com" target="_blank">บริษัทกวางโจวเทคโนโลยีจำกัด</a></p>
+  </footer>
+
+  <script>
+    const validCompanies = [
+      "(AA0660)THAI HAPPY LOGISTICS LTD.",
+      "(AA0823)Thai Happy Logistics Ltd.,(Bulky PU)",
+      "(AA0875)THAI HAPPY LOGISTICS LTD.(Fruit PU)",
+      "(AA0661)THAI HAPPY LOGISTICS LTD.(DOP)",
+      "(AA0824)Thai Happy Logistics Ltd.,(Bulky DOP)",
+      "(AA0703)THAI HAPPY LOGISTICS LTD.(CB)",
+      "(AA0876)THAI HAPPY LOGISTICS LTD.(Fruit DOP)",
+      "(AA0868)Thai Happy Logistics Ltd.,(BRPU)"
+    ];
+
+    const tiktokStatuses = [
+      "เซ็นรับแล้ว",
+      "พัสดุคงคลัง",
+      "พัสดุตีกลับแล้ว",
+      "ระหว่างการขนส่ง",
+      "ระหว่างการจัดส่ง",
+      "ระหว่างจัดการพัสดุมีปัญหา"
+    ];
+
+    let filteredData = [];
+
+    function handleFile() {
+      const fileInput = document.getElementById('excelFile');
+      const file = fileInput.files[0];
+      if (!file) return alert("กรุณาเลือกไฟล์ Excel ก่อน");
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const headers = jsonData[0];
+        const statusIndex = headers.findIndex(h => typeof h === 'string' && h.includes("สถานะพัสดุ"));
+        const customerIndex = 20;
+
+        if (statusIndex === -1) return alert("ไม่พบคอลัมน์ 'สถานะพัสดุ'");
+
+        const statusCount = {};
+        let total = 0;
+        let completed = 0;
+
+        filteredData = [];
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          const customer = row[customerIndex];
+          const status = row[statusIndex];
+
+          if (!validCompanies.includes(customer)) continue;
+          if (!tiktokStatuses.includes(status)) continue;
+
+          statusCount[status] = (statusCount[status] || 0) + 1;
+          total++;
+
+          if (status === "เซ็นรับแล้ว") completed++;
+
+          filteredData.push(row);
+        }
+
+        const tbody = document.querySelector('#statusTable tbody');
+        tbody.innerHTML = '';
+        for (const status of tiktokStatuses) {
+          const count = statusCount[status] || 0;
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${status}</td><td>${count}</td>`;
+          tbody.appendChild(row);
+        }
+
+        document.getElementById('totalCount').textContent = total;
+
+        // คำนวณอัตราปิดงาน
+        const rate = total === 0 ? 0 : (completed / total) * 100;
+        document.getElementById('completionRate').textContent = rate.toFixed(2); // ปัดเศษเป็นทศนิยม 2 ตำแหน่ง
+
+        const required = Math.ceil(total * 0.95);
+        const remaining = required - completed;
+
+        if (remaining <= 0) {
+          document.getElementById('requiredTarget').textContent = `🎯 ผ่านเกณฑ์แล้ว! (95% หรือมากกว่า)`;
+        } else {
+          document.getElementById('requiredTarget').textContent = `🎯 ต้องส่งเพิ่มอีก ${remaining} ชิ้น เพื่อให้ถึงเกณฑ์ 95%`;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function resetData() {
+      document.getElementById('excelFile').value = "";
+      document.getElementById('completionRate').textContent = "0%";
+      document.getElementById('requiredTarget').textContent = "...";
+      document.getElementById('totalCount').textContent = "0";
+      document.querySelector('#statusTable tbody').innerHTML = "";
+    }
+
+    function exportFilteredData() {
+      if (filteredData.length === 0) {
+        return alert("กรุณาประมวลผลข้อมูลก่อนที่จะดาวน์โหลด");
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(filteredData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "FilteredData");
+      XLSX.writeFile(wb, "filtered_data.xlsx");
+    }
+  </script>
+
+</body>
+</html>
