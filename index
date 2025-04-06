@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบคำนวณอัตราปิดงาน TikTok</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      padding: 20px;
+      background-color: #fffde7;
+    }
+    .header {
+      background-color: #ff6f00;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+      font-size: 36px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    input[type="file"] {
+      margin-bottom: 15px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: gold;
+      border: none;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .highlight-box {
+      background-color: #fff8e1;
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px dashed gold;
+      margin-top: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+    .highlight-box h2 {
+      font-size: 28px;
+      margin: 0;
+      color: #ff6f00;
+    }
+    .highlight-box p {
+      font-size: 20px;
+      margin: 5px 0;
+      color: #444;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #ffe082;
+    }
+    footer {
+      margin-top: 30px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    ระบบคำนวณอัตราปิดงาน TikTok
+    <br><small>ระบบนี้ใช้ในการคำนวณอัตราปิดงาน TikTok ของ Flashexpress เท่านั้น</small>
+  </div>
+
+  <h2>นำเข้าไฟล์ Excel</h2>
+  <input type="file" id="excelFile" accept=".xlsx" />
+  <br>
+  <button onclick="handleFile()">ประมวลผลข้อมูล</button>
+  <button onclick="exportFilteredData()">ส่งออกข้อมูล</button>
+
+  <div class="highlight-box">
+    <h2>อัตราปิดงานพัสดุ TikTok: <span id="completionRate">0%</span></h2>
+    <p id="requiredTarget">...</p>
+  </div>
+
+  <table id="statusTable">
+    <thead>
+      <tr>
+        <th>สถานะพัสดุ</th>
+        <th>จำนวน</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr>
+        <th>ผลรวม</th>
+        <th id="totalCount">0</th>
+      </tr>
+    </tfoot>
+  </table>
+
+  <script>
+    const validCompanies = [
+      "(AA0660)THAI HAPPY LOGISTICS LTD.",
+      "(AA0823)Thai Happy Logistics Ltd.,(Bulky PU)",
+      "(AA0875)THAI HAPPY LOGISTICS LTD.(Fruit PU)",
+      "(AA0661)THAI HAPPY LOGISTICS LTD.(DOP)",
+      "(AA0824)Thai Happy Logistics Ltd.,(Bulky DOP)",
+      "(AA0703)THAI HAPPY LOGISTICS LTD.(CB)",
+      "(AA0876)THAI HAPPY LOGISTICS LTD.(Fruit DOP)",
+      "(AA0868)Thai Happy Logistics Ltd.,(BRPU)"
+    ];
+
+    const tiktokStatuses = [
+      "เซ็นรับแล้ว",
+      "พัสดุคงคลัง",
+      "พัสดุตีกลับแล้ว",
+      "ระหว่างการขนส่ง",
+      "ระหว่างการจัดส่ง",
+      "ระหว่างจัดการพัสดุมีปัญหา"
+    ];
+
+    let filteredData = [];
+
+    function handleFile() {
+      const fileInput = document.getElementById('excelFile');
+      const file = fileInput.files[0];
+      if (!file) return alert("กรุณาเลือกไฟล์ Excel ก่อน");
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const headers = jsonData[0];
+        const statusIndex = headers.findIndex(h => typeof h === 'string' && h.includes("สถานะพัสดุ"));
+        const customerIndex = 20;
+
+        if (statusIndex === -1) return alert("ไม่พบคอลัมน์ 'สถานะพัสดุ'");
+
+        const statusCount = {};
+        let total = 0;
+        let completed = 0;
+
+        filteredData = [];
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          const customer = row[customerIndex];
+          const status = row[statusIndex];
+
+          if (!validCompanies.includes(customer)) continue;
+          if (!tiktokStatuses.includes(status)) continue;
+
+          statusCount[status] = (statusCount[status] || 0) + 1;
+          total++;
+
+          if (status === "เซ็นรับแล้ว") completed++;
+
+          filteredData.push(row);
+        }
+
+        const tbody = document.querySelector('#statusTable tbody');
+        tbody.innerHTML = '';
+        for (const status of tiktokStatuses) {
+          const count = statusCount[status] || 0;
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${status}</td><td>${count}</td>`;
+          tbody.appendChild(row);
+        }
+
+        document.getElementById('totalCount').textContent = total;
+
+        const rate = total === 0 ? 0 : (completed / total) * 100;
+        document.getElementById('completionRate').textContent = rate.toFixed(2);
+
+        const required = Math.ceil(total * 0.95);
+        const remaining = required - completed;
+
+        if (remaining <= 0) {
+          document.getElementById('requiredTarget').textContent = `🎯 ผ่านเกณฑ์แล้ว! (95% หรือมากกว่า)`;
+        } else {
+          document.getElementById('requiredTarget').textContent = `🎯 ต้องส่งเพิ่มอีก ${remaining} ชิ้น เพื่อให้ถึงเกณฑ์ 95%`;
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function exportFilteredData() {
+      if (filteredData.length === 0) {
+        return alert("กรุณาประมวลผลข้อมูลก่อนที่จะดาวน์โหลด");
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(filteredData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "FilteredData");
+      XLSX.writeFile(wb, "filtered_data.xlsx");
+    }
+  </script>
+
+  <footer>
+    <p>ระบบนี้พัฒนาโดยบริษัทกวางโจวเทคโนโลยีจำกัด</p>
+  </footer>
+
+</body>
+</html>
